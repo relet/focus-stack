@@ -15,6 +15,8 @@
 #include "task_depthmap_inpaint.hh"
 #include "task_background_removal.hh"
 #include "task_3dpreview.hh"
+#include "task_pyramidmerge.hh"
+#include "task_pyramidcollapse.hh"
 #include <thread>
 #include <opencv2/core/ocl.hpp>
 
@@ -32,6 +34,7 @@ FocusStack::FocusStack():
   m_nocrop(false),
   m_align_only(false),
   m_align_flags(ALIGN_DEFAULT),
+  m_merge_mode(MERGE_WAVELET),
   m_3dviewpoint(1,1,1),
   m_3dzscale(1),
   m_threads(std::thread::hardware_concurrency() + 1), // +1 to have extra thread to give tasks for GPU
@@ -205,6 +208,8 @@ void FocusStack::reset(bool keep_results)
   m_reassign_batch_colors.clear();
   m_reassign_map.reset();
   m_merged_gray.reset();
+  m_prev_pyramid_merge.reset();
+  m_pyramid_batch.clear();
 
   if (!keep_results)
   {
@@ -411,25 +416,41 @@ void FocusStack::schedule_single_image_processing(int i)
   // and results in less difference between the color and grayscale versions.
   m_aligned_grayscales.at(i) = std::make_shared<Task_Grayscale>(m_aligned_imgs.at(i), m_refgray);
   m_worker->add(m_aligned_grayscales.at(i));
-  m_reassign_batch_grays.push_back(m_aligned_grayscales.at(i));
-  m_reassign_batch_colors.push_back(m_aligned_imgs.at(i));
 
-  // Wavelet transform the image
-  std::shared_ptr<ImgTask> wavelet;
-  if (m_have_opencl)
+  if (m_merge_mode == MERGE_PYRAMID)
   {
-    wavelet = std::make_shared<Task_Wavelet_OpenCL>(m_aligned_grayscales.at(i), false);
+    // Pyramid mode: blend color images directly; no wavelet transform needed.
+    m_pyramid_batch.push_back(m_aligned_imgs.at(i));
+    // Grayscale is still needed for depth map (added to reassign tracking only in wavelet mode).
   }
   else
   {
-    wavelet = std::make_shared<Task_Wavelet>(m_aligned_grayscales.at(i), false);
+    m_reassign_batch_grays.push_back(m_aligned_grayscales.at(i));
+    m_reassign_batch_colors.push_back(m_aligned_imgs.at(i));
+
+    // Wavelet transform the image
+    std::shared_ptr<ImgTask> wavelet;
+    if (m_have_opencl)
+    {
+      wavelet = std::make_shared<Task_Wavelet_OpenCL>(m_aligned_grayscales.at(i), false);
+    }
+    else
+    {
+      wavelet = std::make_shared<Task_Wavelet>(m_aligned_grayscales.at(i), false);
+    }
+    m_worker->add(wavelet);
+    m_merge_batch.push_back(wavelet);
   }
-  m_worker->add(wavelet);
-  m_merge_batch.push_back(wavelet);
 }
 
 void FocusStack::schedule_batch_merge()
 {
+  if (m_merge_mode == MERGE_PYRAMID)
+  {
+    schedule_batch_pyramid_merge();
+    return;
+  }
+
   // Merge wavelet images accumulated so far
   m_prev_merge = std::make_shared<Task_Merge>(m_prev_merge, m_merge_batch, m_consistency);
   m_worker->add(m_prev_merge);
@@ -443,6 +464,13 @@ void FocusStack::schedule_batch_merge()
   m_worker->add(m_reassign_map);
   m_reassign_batch_colors.clear();
   m_reassign_batch_grays.clear();
+}
+
+void FocusStack::schedule_batch_pyramid_merge()
+{
+  m_prev_pyramid_merge = std::make_shared<Task_PyramidMerge>(m_prev_pyramid_merge, m_pyramid_batch);
+  m_worker->add(m_prev_pyramid_merge);
+  m_pyramid_batch.clear();
 }
 
 void FocusStack::schedule_depthmap_processing(int i, bool is_final)
@@ -504,9 +532,15 @@ void FocusStack::schedule_final_merge()
   }
 
   // Merge the final batch of images
-  if (m_merge_batch.size() > 0 || m_reassign_batch_colors.size() > 0)
+  if (m_merge_batch.size() > 0 || m_reassign_batch_colors.size() > 0 || m_pyramid_batch.size() > 0)
   {
     schedule_batch_merge();
+  }
+
+  if (m_merge_mode == MERGE_PYRAMID)
+  {
+    schedule_final_pyramid_merge();
+    return;
   }
 
   // Denoise merged image
@@ -593,4 +627,30 @@ void FocusStack::regenerate_3dview()
         m_3dviewpoint, m_3dzscale);
     m_worker->add(m_result_3dview);
   }
+}
+
+void FocusStack::schedule_final_pyramid_merge()
+{
+  if (!m_prev_pyramid_merge)
+    return;
+
+  // Collapse the accumulated pyramid to a final color image.
+  m_result_image = std::make_shared<Task_PyramidCollapse>(m_prev_pyramid_merge);
+  m_worker->add(m_result_image);
+
+  // Save depthmap (generated independently of merge mode).
+  if (m_depthmap != "")
+  {
+    m_worker->add(std::make_shared<Task_SaveImg>(m_depthmap, m_result_depthmap, m_result_fg_mask, m_jpgquality, m_nocrop));
+  }
+
+  // Save 3D preview.
+  if (m_filename_3dview != "")
+  {
+    regenerate_3dview();
+    m_worker->add(std::make_shared<Task_SaveImg>(m_filename_3dview, m_result_3dview, m_jpgquality, m_nocrop));
+  }
+
+  // Save result image.
+  m_worker->add(std::make_shared<Task_SaveImg>(m_output, m_result_image, m_result_fg_mask, m_jpgquality, m_nocrop));
 }

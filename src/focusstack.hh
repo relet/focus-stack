@@ -17,6 +17,7 @@ class Task_Merge;
 class Task_Align;
 class Task_Reassign_Map;
 class Task_Depthmap;
+class Task_PyramidMerge;
 class Worker;
 class ImgTask;
 class Logger;
@@ -25,6 +26,12 @@ class FocusStack {
 public:
   FocusStack();
   virtual ~FocusStack();
+
+  enum merge_mode_t
+  {
+    MERGE_WAVELET  = 0, // Default: complex wavelet domain hard-selection (original algorithm)
+    MERGE_PYRAMID  = 1, // Burt-Adelson Laplacian pyramid soft blending
+  };
 
   enum align_flags_t
   {
@@ -46,6 +53,7 @@ public:
       LOG_ERROR = 40
   };
 
+  void set_merge_mode(merge_mode_t mode) { m_merge_mode = mode; }
   void set_inputs(const std::vector<std::string> &files) { m_inputs = files; }
   void set_output(std::string output) { m_output = output; }
   std::string get_output() const { return m_output; }
@@ -136,6 +144,7 @@ private:
   bool m_align_only;
   std::shared_ptr<Logger> m_logger;
   align_flags_t m_align_flags;
+  merge_mode_t m_merge_mode;
 
   cv::Vec3f m_3dviewpoint;
   float m_3dzscale;
@@ -161,6 +170,10 @@ private:
   std::shared_ptr<Task_Grayscale> m_refgray; // Grayscaled reference image
   std::shared_ptr<Task_Merge> m_prev_merge;
 
+  // Pyramid merge state (used when m_merge_mode == MERGE_PYRAMID)
+  std::shared_ptr<Task_PyramidMerge> m_prev_pyramid_merge;
+  std::vector<std::shared_ptr<ImgTask>> m_pyramid_batch;
+
   // Depthmap building
   std::shared_ptr<Task_Depthmap> m_latest_depthmap;
 
@@ -183,6 +196,8 @@ private:
   void schedule_single_image_processing(int i);
   void schedule_batch_merge();
   void schedule_depthmap_processing(int i, bool is_final);
+  void schedule_batch_pyramid_merge();
+  void schedule_final_pyramid_merge();
 
   // Release temporary images that are no longer needed
   void release_temporaries();

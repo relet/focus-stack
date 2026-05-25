@@ -72,7 +72,8 @@ int main(int argc, const char *argv[])
     std::cerr << "\n";
     std::cerr << "Image merge options:\n"
                  "  --consistency=2               Neighbour pixel consistency filter level 0..2 (default 2)\n"
-                 "  --denoise=1.0                 Merged image denoise level (default 1.0)\n";
+                 "  --denoise=1.0                 Merged image denoise level (default 1.0)\n"
+                 "  --merge-mode=wavelet          Merge mode: wavelet (default) or pyramid (Burt-Adelson)\n";
     std::cerr << "\n";
     std::cerr << "Depth map generation options:\n"
                  "  --depthmap-threshold=10       Threshold to accept depth points (0-255, default 10)\n"
@@ -129,6 +130,13 @@ int main(int argc, const char *argv[])
   // Image merge options
   stack.set_consistency(std::stoi(options.get_arg("--consistency", "2")));
   stack.set_denoise(std::stof(options.get_arg("--denoise", "1.0")));
+  {
+    std::string mode = options.get_arg("--merge-mode", "wavelet");
+    if (mode == "pyramid")
+      stack.set_merge_mode(FocusStack::MERGE_PYRAMID);
+    else if (mode != "wavelet")
+      std::cerr << "Warning: unknown --merge-mode value '" << mode << "', using wavelet\n";
+  }
 
   // Depth map generation options
   stack.set_depthmap_smooth_xy(std::stof(options.get_arg("--depthmap-smooth-xy", "20")));
