@@ -70,6 +70,9 @@ void Task_Merge::task()
     denoise_neighbours();
   }
 
+  // Retain confidence map so Task_InpaintMerge can identify unfocused pixels.
+  max_absval.copyTo(m_max_absval);
+
   // Find out the intersection of input image valid areas.
   m_valid_area = m_images.at(0)->valid_area();
   for (int i = 1; i < m_images.size(); i++)

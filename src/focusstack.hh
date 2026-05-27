@@ -18,6 +18,7 @@ class Task_Align;
 class Task_Reassign_Map;
 class Task_Depthmap;
 class Task_PyramidMerge;
+class Task_InpaintMerge;
 class Worker;
 class ImgTask;
 class Logger;
@@ -54,6 +55,7 @@ public:
   };
 
   void set_merge_mode(merge_mode_t mode) { m_merge_mode = mode; }
+  void set_min_focus(float threshold) { m_min_focus = threshold; }
   void set_inputs(const std::vector<std::string> &files) { m_inputs = files; }
   void set_output(std::string output) { m_output = output; }
   std::string get_output() const { return m_output; }
@@ -145,6 +147,7 @@ private:
   std::shared_ptr<Logger> m_logger;
   align_flags_t m_align_flags;
   merge_mode_t m_merge_mode;
+  float m_min_focus;
 
   cv::Vec3f m_3dviewpoint;
   float m_3dzscale;

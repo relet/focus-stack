@@ -16,6 +16,7 @@ public:
              int consistency);
 
   const cv::Mat &depthmap() const { return m_depthmap; }
+  const cv::Mat &max_absval() const { return m_max_absval; }
 
   static void get_sq_absval(const cv::Mat &complex_mat, cv::Mat &absval);
 
@@ -27,6 +28,7 @@ private:
   void denoise_neighbours();
 
   cv::Mat m_depthmap;
+  cv::Mat m_max_absval; // Per-pixel squared magnitude of the winning wavelet coefficient
 
   std::unordered_map<int, std::shared_ptr<ImgTask> > m_index_map;
   std::shared_ptr<Task_Merge> m_prev_merge;

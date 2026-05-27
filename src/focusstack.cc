@@ -17,6 +17,7 @@
 #include "task_3dpreview.hh"
 #include "task_pyramidmerge.hh"
 #include "task_pyramidcollapse.hh"
+#include "task_inpaintmerge.hh"
 #include <thread>
 #include <opencv2/core/ocl.hpp>
 
@@ -35,6 +36,7 @@ FocusStack::FocusStack():
   m_align_only(false),
   m_align_flags(ALIGN_DEFAULT),
   m_merge_mode(MERGE_WAVELET),
+  m_min_focus(0.0f),
   m_3dviewpoint(1,1,1),
   m_3dzscale(1),
   m_threads(std::thread::hardware_concurrency() + 1), // +1 to have extra thread to give tasks for GPU
@@ -543,11 +545,20 @@ void FocusStack::schedule_final_merge()
     return;
   }
 
+  // Optionally inpaint pixels where no layer had sufficient focus.
+  std::shared_ptr<ImgTask> merge_result = m_prev_merge;
+  if (m_min_focus > 0.0f && m_prev_merge)
+  {
+    auto inpainted = std::make_shared<Task_InpaintMerge>(m_prev_merge, m_min_focus);
+    m_worker->add(inpainted);
+    merge_result = inpainted;
+  }
+
   // Denoise merged image
-  std::shared_ptr<ImgTask> denoised = m_prev_merge;
+  std::shared_ptr<ImgTask> denoised = merge_result;
   if (m_denoise > 0)
   {
-    denoised = std::make_shared<Task_Denoise>(m_prev_merge, m_denoise);
+    denoised = std::make_shared<Task_Denoise>(merge_result, m_denoise);
     m_worker->add(denoised);
   }
 

@@ -29,6 +29,7 @@ CXXSRCS += task_grayscale.cc task_loadimg.cc
 CXXSRCS += task_merge.cc task_reassign.cc task_saveimg.cc
 CXXSRCS += task_wavelet.cc task_wavelet_opencl.cc
 CXXSRCS += task_pyramidmerge.cc task_pyramidcollapse.cc
+CXXSRCS += task_inpaintmerge.cc
 
 # Generate list of object file and dependency file names
 OBJS = $(CXXSRCS:%.cc=build/%.o)
