@@ -92,7 +92,7 @@ void Task_PyramidMerge::task()
     valid &= img->valid_area();
 
   cv::Size full_size = m_images.front()->img().size();
-  int levels = levels_for_size(full_size);
+  int levels = m_prev ? m_prev->levels() : levels_for_size(full_size);
 
   // Initialise or clone accumulators from previous batch.
   if (m_prev)
@@ -127,6 +127,16 @@ void Task_PyramidMerge::task()
 
     std::vector<cv::Mat> lap;
     build_laplacian(img, lap, levels);
+
+    // Resize any pyramid levels that don't exactly match the accumulator sizes.
+    // This handles ±1-pixel discrepancies that arise when aligned images have
+    // slightly different dimensions due to affine warp rounding.
+    for (int l = 0; l < levels; l++)
+    {
+      cv::Size expected = m_num[l].size();
+      if (lap[l].size() != expected)
+        cv::resize(lap[l], lap[l], expected, 0, 0, cv::INTER_LINEAR);
+    }
 
     std::vector<cv::Mat> weights;
     focus_weights(lap, weights);

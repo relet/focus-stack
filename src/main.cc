@@ -74,7 +74,8 @@ int main(int argc, const char *argv[])
                  "  --consistency=2               Neighbour pixel consistency filter level 0..2 (default 2)\n"
                  "  --denoise=1.0                 Merged image denoise level (default 1.0)\n"
                  "  --merge-mode=wavelet          Merge mode: wavelet (default) or pyramid (Burt-Adelson)\n"
-                 "  --min-focus=0                 Fill pixels below this wavelet magnitude from neighbours (default 0 = off)\n";
+                 "  --min-focus=0                 Fill pixels below this wavelet magnitude from neighbours (default 0 = off)\n"
+                 "  --normalize                   Stretch output to full 0-255 range per channel (auto-levels)\n";
     std::cerr << "\n";
     std::cerr << "Depth map generation options:\n"
                  "  --depthmap-threshold=10       Threshold to accept depth points (0-255, default 10)\n"
@@ -132,6 +133,7 @@ int main(int argc, const char *argv[])
   stack.set_consistency(std::stoi(options.get_arg("--consistency", "2")));
   stack.set_denoise(std::stof(options.get_arg("--denoise", "1.0")));
   stack.set_min_focus(std::stof(options.get_arg("--min-focus", "0")));
+  stack.set_normalize(options.has_flag("--normalize"));
   {
     std::string mode = options.get_arg("--merge-mode", "wavelet");
     if (mode == "pyramid")

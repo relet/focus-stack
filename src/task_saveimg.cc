@@ -5,7 +5,7 @@
 using namespace focusstack;
 
 Task_SaveImg::Task_SaveImg(std::string filename, std::shared_ptr<ImgTask> input, std::shared_ptr<ImgTask> alphamask,
-  int jpgquality, bool nocrop)
+  int jpgquality, bool nocrop, bool normalize)
 {
   m_filename = filename;
 
@@ -19,7 +19,8 @@ Task_SaveImg::Task_SaveImg(std::string filename, std::shared_ptr<ImgTask> input,
   }
 
   m_jpgquality = jpgquality;
-  m_nocrop= nocrop;
+  m_nocrop = nocrop;
+  m_normalize = normalize;
   m_input = input;
   m_depends_on.push_back(input);
 
@@ -60,6 +61,24 @@ void Task_SaveImg::task()
     channels[2].create(m_result.rows, m_result.cols, CV_8U);
     channels[2] = 0;
     cv::merge(channels, 3, m_result);
+  }
+
+  // Per-channel linear stretch to full 0..255 range
+  if (m_normalize && m_result.type() == CV_8UC3)
+  {
+    cv::Mat channels[3];
+    cv::split(m_result, channels);
+    for (int c = 0; c < 3; c++)
+    {
+      cv::normalize(channels[c], channels[c], 0, 255, cv::NORM_MINMAX, CV_8U);
+    }
+    cv::merge(channels, 3, m_result);
+    m_logger->verbose("Normalized output to full color range\n");
+  }
+  else if (m_normalize && m_result.type() == CV_8U)
+  {
+    cv::normalize(m_result, m_result, 0, 255, cv::NORM_MINMAX, CV_8U);
+    m_logger->verbose("Normalized grayscale output to full range\n");
   }
 
   // Add alpha channel if given

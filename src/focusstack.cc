@@ -37,6 +37,7 @@ FocusStack::FocusStack():
   m_align_flags(ALIGN_DEFAULT),
   m_merge_mode(MERGE_WAVELET),
   m_min_focus(0.0f),
+  m_normalize(false),
   m_3dviewpoint(1,1,1),
   m_3dzscale(1),
   m_threads(std::thread::hardware_concurrency() + 1), // +1 to have extra thread to give tasks for GPU
@@ -607,7 +608,7 @@ void FocusStack::schedule_final_merge()
   }
 
   // Save result image
-  m_worker->add(std::make_shared<Task_SaveImg>(m_output, m_result_image, m_result_fg_mask, m_jpgquality, m_nocrop));
+  m_worker->add(std::make_shared<Task_SaveImg>(m_output, m_result_image, m_result_fg_mask, m_jpgquality, m_nocrop, m_normalize));
 }
 
 void FocusStack::regenerate_depthmap()
@@ -663,5 +664,5 @@ void FocusStack::schedule_final_pyramid_merge()
   }
 
   // Save result image.
-  m_worker->add(std::make_shared<Task_SaveImg>(m_output, m_result_image, m_result_fg_mask, m_jpgquality, m_nocrop));
+  m_worker->add(std::make_shared<Task_SaveImg>(m_output, m_result_image, m_result_fg_mask, m_jpgquality, m_nocrop, m_normalize));
 }

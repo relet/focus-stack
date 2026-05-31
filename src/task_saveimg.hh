@@ -10,10 +10,10 @@ class Task_SaveImg: public ImgTask
 {
 public:
   Task_SaveImg(std::string filename, std::shared_ptr<ImgTask> input, std::shared_ptr<ImgTask> alphamask,
-    int jpgquality = 99, bool nocrop = false);
+    int jpgquality = 99, bool nocrop = false, bool normalize = false);
 
-  Task_SaveImg(std::string filename, std::shared_ptr<ImgTask> input, int jpgquality = 99, bool nocrop = false):
-    Task_SaveImg(filename, input, nullptr, jpgquality, nocrop) {}
+  Task_SaveImg(std::string filename, std::shared_ptr<ImgTask> input, int jpgquality = 99, bool nocrop = false, bool normalize = false):
+    Task_SaveImg(filename, input, nullptr, jpgquality, nocrop, normalize) {}
 
 private:
   virtual void task();
@@ -21,6 +21,7 @@ private:
   std::shared_ptr<ImgTask> m_input;
   std::shared_ptr<ImgTask> m_alphamask;
   bool m_nocrop;
+  bool m_normalize;
 };
 
 }
